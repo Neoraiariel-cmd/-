@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>מנג'ר חוף הים - נועם & נהוראי</title>
+    <style>
+        body { font-family: sans-serif; background: #0f172a; color: #f8fafc; padding: 20px; direction: rtl; }
+        .login-box { max-width: 400px; margin: 100px auto; background: #1e293b; padding: 30px; border-radius: 10px; border: 2px solid #38bdf8; text-align: center; }
+        .dashboard { display: none; max-width: 1000px; margin: 0 auto; background: #1e293b; padding: 25px; border-radius: 10px; border: 1px solid #334155; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: white; text-align: center; }
+        button { width: 100%; padding: 12px; background: #38bdf8; color: #0f172a; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 16px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; background: #0f172a; }
+        th, td { padding: 12px; border: 1px solid #334155; text-align: right; }
+        th { background: #38bdf8; color: #0f172a; }
+        .block-btn { background: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; }
+        .unblock-btn { background: #22c55e; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <div id="login-section" class="login-box">
+        <h2>🔒 כניסת מנהל (Manager)</h2>
+        <p style="font-size: 13px; color: #94a3b8; margin-top: 5px;">נועם & נהוראי בלבד</p>
+        <input type="password" id="admin-pass" placeholder="הזינו סיסמת מנהל סודית">
+        <button onclick="checkAdminPassword()">התחבר למערכת הפיקוח</button>
+    </div>
+
+    <div id="dashboard-section" class="dashboard">
+        <h1 style="color: #38bdf8; margin-bottom: 20px;">שליטה ופיקוח רשת חוף הים 🌊</h1>
+        
+        <div style="background: #334155; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+            <strong>⚡ הפקת קוד רישום (OTP):</strong> תנו אותו לתלמיד שרוצה להירשם.<br><br>
+            <button onclick="generateNewOTP()" style="width:auto; padding:10px 20px; background:#eab308;">הפק קוד חדש</button>
+            <span id="otp-display" style="margin-right:20px; font-size:20px; font-weight:bold; color:#38bdf8;"></span>
+        </div>
+
+        <h3>👁️ מוניטור גלישה בית-ספרי בזמן אמת (רואים הכל)</h3>
+        <table id="logs-table">
+            <thead>
+                <tr><th>שם תלמיד</th><th>מספר סידורי</th><th>אתר שנפתח</th><th>שעה</th></tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+
+        <h3>👥 ניהול תלמידים, תשלומים וניתוקים (מנגנון המנעול)</h3>
+        <table id="users-table">
+            <thead>
+                <tr><th>שם תלמיד</th><th>מספר סידורי</th><th>סטטוס ברשת</th><th>שליטה במנעול</th></tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <script>
+        const ADMIN_SECRET = "נועםונהוראי123";
+
+        function checkAdminPassword() {
+            let pass = document.getElementById('admin-pass').value;
+            if(pass === ADMIN_SECRET) {
+                document.getElementById('login-section').style.display = 'none';
+                document.getElementById('dashboard-section').style.display = 'block';
+                startSync();
+            } else { alert("סיסמה שגויה! הגישה נדחתה."); }
+        }
+
+        function generateNewOTP() {
+            let code = "BEACH-" + Math.floor(1000 + Math.random() * 9000);
+            let otps = JSON.parse(localStorage.getItem('sea_active_otps') || "[]");
+            otps.push(code); localStorage.setItem('sea_active_otps', JSON.stringify(otps));
+            document.getElementById('otp-display').innerText = code;
+            refreshData();
+        }
+
+        function refreshData() {
+            let allUsers = JSON.parse(localStorage.getItem('sea_all_users') || "[]");
+            let blockedList = JSON.parse(localStorage.getItem('sea_blocked_serials') || "[]");
+            let logs = JSON.parse(localStorage.getItem('sea_live_logs') || "[]");
+
+            let uBody = document.querySelector('#users-table tbody'); uBody.innerHTML = "";
+            allUsers.forEach(u => {
+                let isBlocked = blockedList.includes(u.serial.toString());
+                uBody.innerHTML += `<tr>
+                    <td>${u.name}</td>
+                    <td>#${u.serial}</td>
+                    <td style="color:${isBlocked ? '#ef4444':'#22c55e'}; font-weight:bold;">${isBlocked ? '🛑 חסום (מנעול נעול)':'✅ פעיל (שילם)'}</td>
+                    <td>
+                        <button class="${isBlocked ? 'unblock-btn':'block-btn'}" onclick="toggleLock('${u.serial}')">
+                            ${isBlocked ? 'שחרר חסימה' : 'הפעל מנעול 🔒'}
+                        </button>
+                    </td>
+                </tr>`;
+            });
+
+            let lBody = document.querySelector('#logs-table tbody'); lBody.innerHTML = "";
+            if(logs.length === 0) { lBody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#64748b;">אין פעילות כרגע</td></tr>`; }
+            logs.slice().reverse().forEach(log => {
+                lBody.innerHTML += `<tr><td>${log.name}</td><td>#${log.serial}</td><td style="color:#38bdf8; font-weight:bold;">${log.site}</td><td>${log.time}</td></tr>`;
+            });
+        }
+
+        function toggleLock(serial) {
+            let blocked = JSON.parse(localStorage.getItem('sea_blocked_serials') || "[]");
+            serial = serial.toString();
+            if(blocked.includes(serial)) { blocked = blocked.filter(s => s !== serial); }
+            else { blocked.push(serial); }
+            localStorage.setItem('sea_blocked_serials', JSON.stringify(blocked));
+            refreshData();
+        }
+
+        function startSync() {
+            refreshData();
+            setInterval(refreshData, 1000);
+        }
+    </script>
+</body>
+</html>
